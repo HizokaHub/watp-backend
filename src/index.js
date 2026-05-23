@@ -6,6 +6,7 @@ const cors = require('cors');
 
 const canalesRouter = require('./routes/canales');
 const messagesRouter = require('./routes/messages');
+const worldRouter = require('./routes/world');
 const { setupSocketHandler } = require('./socket/handler');
 const { startTopTenBroadcast } = require('./socket/topten');
 
@@ -25,6 +26,7 @@ app.use(express.json());
 // Rutas REST
 app.use('/api/canales', canalesRouter);
 app.use('/api/messages', messagesRouter);
+app.use('/api/world', worldRouter);
 
 // Health check para Railway/Render
 app.get('/health', (req, res) => {
