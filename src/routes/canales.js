@@ -105,8 +105,8 @@ router.put('/:id', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/canales/:id/world — retorna world_data del canal
-router.get('/:id/world', verifyToken, async (req, res) => {
+// GET /api/canales/:id/world — retorna world_data del canal (pública)
+router.get('/:id/world', async (req, res) => {
   try {
     const { rows } = await pool.query(
       'SELECT world_data FROM canales WHERE id = $1',
