@@ -144,12 +144,12 @@ router.put('/:id/world', verifyToken, async (req, res) => {
 
     await pool.query(
       'UPDATE canales SET world_data = $1 WHERE id = $2',
-      [JSON.stringify({ grid }), req.params.id]
+      [{ grid }, req.params.id]
     );
     res.json({ ok: true });
   } catch (e) {
-    console.error('[canales PUT /:id/world]', e.message);
-    res.status(500).json({ error: e.message });
+    console.error('[canales PUT /:id/world] ERROR:', e.message, '| code:', e.code);
+    res.status(500).json({ error: e.message, code: e.code });
   }
 });
 
