@@ -66,6 +66,22 @@ REGLAS IMPORTANTES:
 6. world_type debe ser uno de: forest, city, beach, desert, medieval, fantasy, scifi, space, snow, farm
 7. Retorna SOLO el JSON, sin texto adicional, sin markdown
 
+REGLAS DE world_type:
+- Si el prompt menciona "fantasía", "mágico", "encantado", "dragón", "hechizo" → world_type: "fantasy"
+- Si menciona "espacio", "nave", "planeta", "galaxia" → world_type: "space"
+- Si menciona "ciudad", "urbano", "edificios", "calle" → world_type: "city"
+- Si menciona "playa", "mar", "océano", "costa" → world_type: "beach"
+- Si menciona "nieve", "invierno", "ártico", "hielo" → world_type: "snow"
+- Si menciona "medieval", "castillo", "caballeros", "reino" → world_type: "medieval"
+- Si menciona "granja", "cultivo", "campo", "cosecha" → world_type: "farm"
+- Si menciona "desierto", "árido", "calor extremo" → world_type: "desert"
+- Si menciona "scifi", "futurista", "robots", "tecnología" → world_type: "scifi"
+
+REGLAS DE CONTENIDO:
+- Si el prompt pide animales, DEBES incluir al menos 5-8 emojis de animales: 🦊 🐺 🐄 🐴 🦌 🐕 🦙 🐂 🫏 🐝 🦀
+- Si pide castillo, DEBES incluir 🏰 en el grid
+- Si pide fantasía, incluye: 🔮 🌀 ✨ 🏰 junto con vegetación mágica
+
 FORMATO DE RESPUESTA:
 {
   "world_type": "forest",
