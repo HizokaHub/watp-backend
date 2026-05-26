@@ -65,6 +65,7 @@ REGLAS IMPORTANTES:
 5. Las construcciones deben tener espacio entre ellas
 6. world_type debe ser uno de: forest, city, beach, desert, medieval, fantasy, scifi, space, snow, farm
 7. Retorna SOLO el JSON, sin texto adicional, sin markdown
+8. Cada emoji en el grid DEBE estar entre comillas dobles: "🌲" no 🌲. Los nulls sin comillas. Ejemplo de fila correcta: ["🌲", null, "🏰", null, "🦊"]
 
 REGLAS DE world_type:
 - Si el prompt menciona "fantasía", "mágico", "encantado", "dragón", "hechizo" → world_type: "fantasy"
@@ -133,7 +134,12 @@ router.post('/generate', verifyToken, async (req, res) => {
 
     let parsed;
     try {
-      parsed = JSON.parse(jsonMatch[0]);
+      let cleanJson = jsonMatch[0];
+      cleanJson = cleanJson.replace(/:\s*([^\[{\]},"\s][^\]},]*)/g, (match, val) => {
+        if (val === 'null' || val === 'true' || val === 'false' || !isNaN(val)) return match;
+        return ': "' + val.trim() + '"';
+      });
+      parsed = JSON.parse(cleanJson);
     } catch (e) {
       return res.status(422).json({ error: 'JSON inválido', detail: e.message });
     }
