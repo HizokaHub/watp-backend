@@ -84,7 +84,7 @@ function buildSystemPrompt(currentGrid) {
 }
 
 // POST /api/world/generate
-router.post('/generate', async (req, res) => {
+router.post('/generate', verifyToken, async (req, res) => {
   const { prompt, currentGrid } = req.body;
   if (!prompt || !prompt.trim()) {
     return res.status(400).json({ error: 'El prompt es obligatorio' });
