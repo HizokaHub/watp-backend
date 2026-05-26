@@ -3,23 +3,83 @@ const router = express.Router();
 const Anthropic = require('@anthropic-ai/sdk');
 const { verifyToken } = require('../middleware/auth');
 
-const BASE_SYSTEM_PROMPT =
-  'Eres un asistente que genera mundos 2D en cuadrícula 10x10. Retorna SOLO un JSON válido con esta estructura: {"grid": [[emoji o null por cada celda, 10 columnas], [10 filas en total]]}. Usa emojis de estas categorías disponibles: Naturaleza (🌲🌳🌵🌺🌸🍄🪨💧🌊🏔️), Construcción (🏠🏰🏯🗼🏗️🚪🪟⬛🧱🪵), Decoración (🎨🖼️🪑🛋️🛏️🚿🪞💡🕯️🎭), Tienda (🏪🛒💰🎁📦🏷️💎🪙🏦💳), Entretenimiento (🎮🎵🎬🎤🎸🎹🎲🎯🎳🎪). Deja null en celdas vacías. El JSON debe tener exactamente 10 filas y 10 columnas.';
+const EMOJI_LIST = `
+NATURALEZA:
+- Árboles: 🌲 🌳 🌴 🍁 🎋 🎄 🌵
+- Plantas: 🌱 🌿 ☘️ 🍃
+- Flores: 🌸 🌺 🌻 🌼 🪷
+- Hongos: 🍄
+- Rocas: 🪨 ⛰️ 🏔️
+- Madera: 🪵
+- Cultivos: 🥕 🌽 🎃 🍈 🎍 🍎
+- Agua: 🌊 💧 🏖️ 🏝️
+- Exterior: 🔥 ⛺ 🏕️ 🛶 🌉
+- Decoración: 🪴 🗿 🪧 ☁️
+- Animales: 🦊 🐺 🐄 🐴 🦌 🐕 🦙 🐂 🫏 🐝 🦀
+- Campo: 🌾 🐔 ⛲
+
+CIUDAD:
+- Edificios modernos: 🏠 🏡 🏢 🏦 🏪 🏨 🏩 🏫 🏬 🏛️ 🏘️ 🏙️
+- Vehículos: 🚗 🚕 🚛
+- Urbano: 🚦 🚧 🛣️ 🗑️ 🧱
+
+MEDIEVAL / FANTASÍA:
+- Estructuras: 🏰 🏯 ⛪ 🏚️ 🏗️ 🏥 ⛩️ 🛕 🏺 🗼 ⛲ 🏟️
+- Items: 🔔 🪑 🛒 ⚒️ 🪚 🛢️ ⚓ 🌬️ 🗡️ 🪓 🔮
+
+ESPACIO / SCIFI:
+- Espacio: 🚀 🛸 🪐 ☄️ 👽 🛰️ 📡 🔭 🌑
+- SciFi: 👾 🛡️ 💻 🌐 📺 💡 📦 🔌 🛩️ 🪖 💊 🔩 🌀 🏭 ⚙️ 🤖 🔫 💣 🚂 🛤️ 🦴 💀
+
+ITEMS / DECORACIÓN:
+- Coleccionables: 🪙 💎 🔑 ❤️ ⚡ 🚩 💥 🔧 🎁 🧪 💰 🎮 🪝 ⭐ 🌟 🧸
+- Bloques: 🧊 ❄️ 🏆
+- Personajes: 🧟 🧑 🎸 🛋️
+`;
+
+const WORLD_TYPES = {
+  forest: { terrain: 'forest_floor_02', sun_angle: -45, ambient: 1.2 },
+  city: { terrain: 'asphalt_02', sun_angle: -60, ambient: 1.5 },
+  beach: { terrain: 'sand_01', sun_angle: -35, ambient: 1.8 },
+  desert: { terrain: 'sand_02', sun_angle: -70, ambient: 2.0 },
+  medieval: { terrain: 'cobblestone_02', sun_angle: -50, ambient: 1.3 },
+  fantasy: { terrain: 'rock_moss_01', sun_angle: -40, ambient: 1.0 },
+  scifi: { terrain: 'metal_plate_01', sun_angle: -80, ambient: 0.8 },
+  space: { terrain: 'rock_ground_01', sun_angle: -90, ambient: 0.5 },
+  snow: { terrain: 'snow_01', sun_angle: -30, ambient: 1.6 },
+  farm: { terrain: 'grass_01', sun_angle: -45, ambient: 1.4 },
+};
+
+const BASE_SYSTEM_PROMPT = `Eres un generador de mundos 3D para una red social metaverso llamada WATP.
+El usuario describe un mundo con texto y tú generas un JSON con la cuadrícula 10x10 y metadatos.
+
+EMOJIS DISPONIBLES (usa SOLO estos):
+${EMOJI_LIST}
+
+REGLAS IMPORTANTES:
+1. El grid debe tener EXACTAMENTE 10 filas y 10 columnas
+2. Usa null para celdas vacías (suelo visible)
+3. El agua (🌊 💧) debe agruparse en zonas coherentes, no dispersa
+4. Los árboles deben formar bosques o grupos naturales
+5. Las construcciones deben tener espacio entre ellas
+6. world_type debe ser uno de: forest, city, beach, desert, medieval, fantasy, scifi, space, snow, farm
+7. Retorna SOLO el JSON, sin texto adicional, sin markdown
+
+FORMATO DE RESPUESTA:
+{
+  "world_type": "forest",
+  "theme": "descripción breve del mundo en español",
+  "grid": [
+    [emoji o null, ...10 columnas],
+    ...10 filas
+  ]
+}`;
 
 function buildSystemPrompt(currentGrid) {
-  const hasContent =
-    currentGrid &&
-    Array.isArray(currentGrid) &&
-    currentGrid.some(row => Array.isArray(row) && row.some(cell => cell !== null));
-
-  if (!hasContent) return BASE_SYSTEM_PROMPT;
-
-  return (
-    BASE_SYSTEM_PROMPT +
-    ` El usuario ya tiene este mundo construido: ${JSON.stringify(currentGrid)}. ` +
-    'Mantén todos los objetos existentes que no contradigan el nuevo prompt y agrega o modifica solo lo necesario. ' +
-    'Retorna el grid completo actualizado.'
-  );
+  if (!currentGrid || !Array.isArray(currentGrid) || !currentGrid.some(row => Array.isArray(row) && row.some(c => c !== null))) {
+    return BASE_SYSTEM_PROMPT;
+  }
+  return BASE_SYSTEM_PROMPT + `\n\nEL USUARIO YA TIENE ESTE MUNDO:\n${JSON.stringify(currentGrid)}\nConserva lo que no contradiga el nuevo prompt. Retorna el grid completo actualizado.`;
 }
 
 // POST /api/world/generate
@@ -31,64 +91,57 @@ router.post('/generate', verifyToken, async (req, res) => {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.error('[world POST /generate] ANTHROPIC_API_KEY no está definida en las variables de entorno');
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY no configurada en el servidor' });
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY no configurada' });
   }
 
   let rawText = '';
   try {
     const anthropic = new Anthropic({ apiKey });
-
-    console.log('[world POST /generate] Llamando a Claude con prompt:', prompt.trim().slice(0, 80));
+    console.log('[world/generate] prompt:', prompt.trim().slice(0, 80));
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: buildSystemPrompt(currentGrid),
       messages: [{ role: 'user', content: prompt.trim() }],
     });
 
     rawText = message.content[0].text.trim();
-    console.log('[world POST /generate] Respuesta raw de Claude (primeros 200 chars):', rawText.slice(0, 200));
+    console.log('[world/generate] raw (200):', rawText.slice(0, 200));
 
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error('[world POST /generate] No se encontró JSON en la respuesta:', rawText);
-      return res.status(422).json({ error: 'La IA no retornó un JSON válido', raw: rawText.slice(0, 300) });
+      return res.status(422).json({ error: 'La IA no retornó JSON válido', raw: rawText.slice(0, 300) });
     }
 
     let parsed;
     try {
       parsed = JSON.parse(jsonMatch[0]);
-    } catch (parseErr) {
-      console.error('[world POST /generate] JSON.parse falló:', parseErr.message, '| Texto:', jsonMatch[0].slice(0, 200));
-      return res.status(422).json({ error: 'No se pudo parsear el JSON de la IA', detail: parseErr.message });
+    } catch (e) {
+      return res.status(422).json({ error: 'JSON inválido', detail: e.message });
     }
 
-    if (
-      !parsed.grid ||
-      !Array.isArray(parsed.grid) ||
-      parsed.grid.length !== 10 ||
-      parsed.grid.some(row => !Array.isArray(row) || row.length !== 10)
-    ) {
-      console.error('[world POST /generate] Grid inválido — filas:', parsed.grid?.length, '| primera fila cols:', parsed.grid?.[0]?.length);
-      return res.status(422).json({ error: 'El grid generado no tiene la estructura correcta (debe ser 10x10)' });
+    if (!parsed.grid || !Array.isArray(parsed.grid) || parsed.grid.length !== 10 || parsed.grid.some(r => !Array.isArray(r) || r.length !== 10)) {
+      return res.status(422).json({ error: 'Grid inválido — debe ser exactamente 10x10' });
     }
 
-    console.log('[world POST /generate] Grid generado correctamente');
-    res.json({ grid: parsed.grid });
-  } catch (e) {
-    console.error('[world POST /generate] ERROR COMPLETO:');
-    console.error('  message:', e.message);
-    console.error('  status:', e.status);
-    console.error('  type:', e.error?.type);
-    console.error('  error:', JSON.stringify(e.error));
-    console.error('  rawText hasta ahora:', rawText.slice(0, 200));
-    res.status(e.status || 500).json({
-      error: e.message,
-      type: e.error?.type,
-      status: e.status,
+    const worldType = parsed.world_type || 'forest';
+    const worldConfig = WORLD_TYPES[worldType] || WORLD_TYPES.forest;
+
+    console.log('[world/generate] world_type:', worldType, '| theme:', parsed.theme);
+
+    res.json({
+      grid: parsed.grid,
+      world_type: worldType,
+      theme: parsed.theme || '',
+      terrain_texture: worldConfig.terrain,
+      sun_angle: worldConfig.sun_angle,
+      ambient_light: worldConfig.ambient,
     });
+
+  } catch (e) {
+    console.error('[world/generate] ERROR:', e.message, e.status);
+    res.status(e.status || 500).json({ error: e.message, type: e.error?.type });
   }
 });
 
