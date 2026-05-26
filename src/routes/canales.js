@@ -1,12 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
 const { verifyToken } = require('../middleware/auth');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
+const pool = require('../db');
 
 // GET /api/canales — lista todos los canales ordenados por fecha
 router.get('/', async (req, res) => {

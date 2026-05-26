@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Anthropic = require('@anthropic-ai/sdk');
 const { verifyToken } = require('../middleware/auth');
+const pool = require('../db');
 
 const EMOJI_LIST = `
 NATURALEZA:
@@ -129,6 +130,24 @@ router.post('/generate', verifyToken, async (req, res) => {
     const worldConfig = WORLD_TYPES[worldType] || WORLD_TYPES.forest;
 
     console.log('[world/generate] world_type:', worldType, '| theme:', parsed.theme);
+
+    // Guardar mundo generado en la BD
+    const { canal_id } = req.body;
+    if (canal_id) {
+      const worldData = {
+        grid: parsed.grid,
+        world_type: worldType,
+        theme: parsed.theme || '',
+        terrain_texture: worldConfig.terrain,
+        sun_angle: worldConfig.sun_angle,
+        ambient_light: worldConfig.ambient,
+      };
+      await pool.query(
+        'UPDATE canales SET world_data = $1 WHERE id = $2',
+        [JSON.stringify(worldData), canal_id]
+      );
+      console.log('[world/generate] mundo guardado en BD para canal:', canal_id);
+    }
 
     res.json({
       grid: parsed.grid,
