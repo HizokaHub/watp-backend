@@ -9,6 +9,8 @@ const messagesRouter = require('./routes/messages');
 const worldRouter = require('./routes/world');
 const profilesRouter = require('./routes/profiles');
 const callesRouter = require('./routes/calles');
+const comunidadesRouter = require('./routes/comunidades');
+const contenidoRouter = require('./routes/contenido');
 const { setupSocketHandler } = require('./socket/handler');
 const { startTopTenBroadcast } = require('./socket/topten');
 
@@ -31,6 +33,8 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/world', worldRouter);
 app.use('/api/profiles', profilesRouter);
 app.use('/api/calles', callesRouter);
+app.use('/api/comunidades', comunidadesRouter);
+app.use('/api/contenido', contenidoRouter);
 
 // Health check para Railway/Render
 app.get('/health', (req, res) => {

@@ -3,6 +3,20 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const pool = require('../db');
 
+// GET /api/calles/me/canales — canales del usuario autenticado
+router.get('/me/canales', verifyToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM canales_v2 WHERE owner_id = $1 ORDER BY created_at DESC`,
+      [req.user.sub]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error('[calles GET /me/canales]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/calles/me — mi calle
 router.get('/me', verifyToken, async (req, res) => {
   try {
@@ -36,6 +50,23 @@ router.put('/me/world', verifyToken, async (req, res) => {
     res.json(rows[0]);
   } catch (e) {
     console.error('[calles PUT /me/world]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/calles/:username/canales — canales públicos de un usuario
+router.get('/:username/canales', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT cv.* FROM canales_v2 cv
+       JOIN profiles p ON p.id = cv.owner_id
+       WHERE p.username = $1 AND cv.is_public = true
+       ORDER BY cv.created_at DESC`,
+      [req.params.username.toLowerCase()]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error('[calles GET /:username/canales]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
